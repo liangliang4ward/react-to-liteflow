@@ -21,6 +21,6 @@ public interface INode {
         return node.getBindData(NodeConstant.PARAM, CommonNodeDsl.class);
     }
     default boolean isEnd(NodeComponent node) {
-        return getContextWrapper(node).isCancel();
+        return true;
     }
 }

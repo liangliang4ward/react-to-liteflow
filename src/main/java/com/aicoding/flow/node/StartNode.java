@@ -27,7 +27,6 @@ public class StartNode extends CommonNodeComponent {
         //开始节点，从上下文中获取数据，并放到节点中
         CommonNodeDsl nodeDsl = getBindParam();
         FlowContextWrapper contextWrapper = getContextWrapper();
-        contextWrapper.step("startNodeStart");
         List<InputParam> userInputs = contextWrapper.getUserInputs();
         Map<String, InputParam>
                 userInputMap = userInputs.stream().collect(Collectors.toMap(InputParam::getName, Function.identity()));

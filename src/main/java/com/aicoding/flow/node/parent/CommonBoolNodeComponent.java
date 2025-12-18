@@ -32,7 +32,7 @@ public abstract class CommonBoolNodeComponent extends NodeBooleanComponent imple
 
     @Override
     public boolean isEnd() {
-        return getContextWrapper(this).isCancel();
+        return true;
     }
 
 

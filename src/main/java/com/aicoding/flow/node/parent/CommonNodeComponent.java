@@ -30,7 +30,7 @@ public abstract class CommonNodeComponent extends NodeComponent implements INode
 
     @Override
     public boolean isEnd() {
-        return getContextWrapper(this).isCancel();
+        return true;
     }
 
 }

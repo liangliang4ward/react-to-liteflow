@@ -1,5 +1,6 @@
 package com.aicoding.flow.graph;
 
+import com.aicoding.flow.graph.model.GraphModel;
 import org.springframework.stereotype.Service;
 
 /**
@@ -8,8 +9,7 @@ import org.springframework.stereotype.Service;
  **/
 @Service
 public class GraphService {
-    public String createEl(String file) {
-
+    public String createEl(GraphModel model) {
 
         return "";
 

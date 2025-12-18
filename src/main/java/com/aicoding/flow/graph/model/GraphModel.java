@@ -1,4 +1,4 @@
-package com.aicoding.flow;
+package com.aicoding.flow.graph.model;
 
 import lombok.Data;
 import org.springframework.util.CollectionUtils;

@@ -160,13 +160,16 @@ public class GraphService {
         
         // 构建节点连接关系
         Map<String, List<String>> nodeConnections = new HashMap<>();
+        Map<String, List<String>> reverseConnections = new HashMap<>();
         for (GraphModel.EdgeModel edge : graph.getEdges()) {
             nodeConnections.computeIfAbsent(edge.getSource(), k -> new ArrayList<>())
                     .add(edge.getTarget());
+            reverseConnections.computeIfAbsent(edge.getTarget(), k -> new ArrayList<>())
+                    .add(edge.getSource());
         }
         
         // 生成流程控制语句
-        String flowControl = buildFlowControl(startNode.getId(), nodeConnections, graph);
+        String flowControl = buildFlowControl(startNode.getId(), nodeConnections, reverseConnections, graph);
         elBuilder.append(flowControl);
     }
 
@@ -174,10 +177,12 @@ public class GraphService {
      * 递归构建流程控制语句
      * @param currentNodeId 当前节点ID
      * @param nodeConnections 节点连接关系
+     * @param reverseConnections 反向节点连接关系（用于识别汇合点）
      * @param graph 图形模型对象
      * @return 流程控制语句
      */
-    private String buildFlowControl(String currentNodeId, Map<String, List<String>> nodeConnections, GraphModel graph) {
+    private String buildFlowControl(String currentNodeId, Map<String, List<String>> nodeConnections, 
+                                    Map<String, List<String>> reverseConnections, GraphModel graph) {
         // 检查是否为条件节点
         GraphModel.WorkNode currentNode = graph.getNodes().stream()
                 .filter(node -> node.getId().equals(currentNodeId))
@@ -185,7 +190,7 @@ public class GraphService {
                 .orElseThrow(() -> new IllegalArgumentException("找不到节点: " + currentNodeId));
         
         if ("condition".equals(currentNode.getType())) {
-            return buildConditionFlow(currentNode, nodeConnections, graph);
+            return buildConditionFlow(currentNode, nodeConnections, reverseConnections, graph);
         }
         
         // 获取当前节点的所有目标节点
@@ -195,15 +200,65 @@ public class GraphService {
             // 没有后续节点
             return "_" + currentNodeId;
         } else if (targets.size() == 1) {
-            // 单个后续节点，使用THEN
-            return String.format("THEN(_%s, %s)", currentNodeId, 
-                    buildFlowControl(targets.get(0), nodeConnections, graph));
+            // 单个后续节点
+            String targetId = targets.get(0);
+            // 检查目标节点是否有多个前驱节点（汇合点）
+            if (reverseConnections.getOrDefault(targetId, new ArrayList<>()).size() > 1) {
+                // 如果目标节点是汇合点，只返回当前节点
+                return "_" + currentNodeId;
+            } else {
+                // 否则继续构建后续流程
+                return String.format("THEN(_%s, %s)", currentNodeId, 
+                        buildFlowControl(targetId, nodeConnections, reverseConnections, graph));
+            }
         } else {
             // 多个后续节点，使用WHEN（并行）
             String parallelNodes = targets.stream()
-                    .map(target -> buildFlowControl(target, nodeConnections, graph))
+                    .map(target -> {
+                        String targetFlow = buildFlowControl(target, nodeConnections, reverseConnections, graph);
+                        // 检查目标分支是否以当前节点的后续节点结束，或者需要继续构建
+                        return targetFlow;
+                    })
                     .collect(Collectors.joining(", "));
-            return String.format("THEN(_%s, WHEN(%s))", currentNodeId, parallelNodes);
+            
+            // 检查所有并行分支是否都指向同一个汇合点
+            List<String> allEndNodes = new ArrayList<>();
+            for (String target : targets) {
+                String endNode = findEndNode(target, nodeConnections, graph);
+                allEndNodes.add(endNode);
+            }
+            
+            boolean allSameEnd = allEndNodes.stream().distinct().count() == 1;
+            if (allSameEnd && allEndNodes.get(0) != null) {
+                // 如果所有分支都指向同一个结束节点，构建并行分支后再连接到结束节点
+                return String.format("THEN(_%s, WHEN(%s), _%s)", currentNodeId, parallelNodes, allEndNodes.get(0));
+            } else {
+                // 否则正常构建并行分支
+                return String.format("THEN(_%s, WHEN(%s))", currentNodeId, parallelNodes);
+            }
+        }
+    }
+    
+    /**
+     * 查找从指定节点开始的最终结束节点
+     * @param nodeId 起始节点ID
+     * @param nodeConnections 节点连接关系
+     * @param graph 图形模型对象
+     * @return 最终结束节点ID，如果没有则返回null
+     */
+    private String findEndNode(String nodeId, Map<String, List<String>> nodeConnections, GraphModel graph) {
+        String current = nodeId;
+        while (true) {
+            List<String> targets = nodeConnections.getOrDefault(current, new ArrayList<>());
+            if (targets.isEmpty()) {
+                // 没有后续节点
+                return current;
+            } else if (targets.size() == 1) {
+                current = targets.get(0);
+            } else {
+                // 多个后续节点，无法确定唯一结束节点
+                return null;
+            }
         }
     }
 
@@ -211,10 +266,12 @@ public class GraphService {
      * 构建条件节点的流程控制语句
      * @param conditionNode 条件节点
      * @param nodeConnections 节点连接关系
+     * @param reverseConnections 反向节点连接关系
      * @param graph 图形模型对象
      * @return 条件流程控制语句
      */
-    private String buildConditionFlow(GraphModel.WorkNode conditionNode, Map<String, List<String>> nodeConnections, GraphModel graph) {
+    private String buildConditionFlow(GraphModel.WorkNode conditionNode, Map<String, List<String>> nodeConnections, 
+                                      Map<String, List<String>> reverseConnections, GraphModel graph) {
         // 获取条件节点的所有目标节点
         List<String> targets = nodeConnections.getOrDefault(conditionNode.getId(), new ArrayList<>());
         
@@ -228,7 +285,7 @@ public class GraphService {
         
         for (int i = 0; i < targets.size(); i++) {
             String target = targets.get(i);
-            String targetFlow = buildFlowControl(target, nodeConnections, graph);
+            String targetFlow = buildFlowControl(target, nodeConnections, reverseConnections, graph);
             
             if (i == 0) {
                 conditionBuilder.append(targetFlow);

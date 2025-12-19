@@ -21,9 +21,9 @@ public class WorkflowController {
     private GraphService graphService;
 
 
-    @PostMapping("/toEl")
-    public String toEl(@RequestBody GraphModel model) {
-        return graphService.createEl(model);
-    }
+//    @PostMapping("/toEl")
+//    public String toEl(@RequestBody GraphModel model) {
+//        return graphService.createEl(model);
+//    }
 }
 

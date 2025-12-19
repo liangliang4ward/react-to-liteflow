@@ -1,5 +1,6 @@
 package com.aicoding.flow.graph;
 
+import cn.hutool.json.JSONUtil;
 import com.aicoding.flow.graph.model.GraphModel;
 import org.springframework.stereotype.Service;
 
@@ -9,8 +10,9 @@ import org.springframework.stereotype.Service;
  **/
 @Service
 public class GraphService {
-    public String createEl(GraphModel model) {
-
+    public String createEl(String json) {
+        GraphModel graph = JSONUtil.toBean(json, GraphModel.class);
+        //TODO:
         return "";
 
     }
